@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <title>Nick's shitty chess gui</title>
+  <link rel="stylesheet"
+      href="static/css/chessboard-1.0.0.css">
+<body>
+
+<!--- Begin Example HTML ------------------------------------------------------>
+<div id="myBoard" style="width: 400px"></div>
+<!--- End Example HTML -------------------------------------------------------->
+<p>Refresh browser to restart the game.</p>
+
+<script type=text/javascript src="{{
+  url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+
+
+<script type=text/javascript src="{{
+  url_for('static', filename='js/chessboard-1.0.0.min.js') }}"></script>
+<script>
+
+// Re-enable when the engine is implemented
+// function onDragStart (source, piece, position, orientation) {
+//   if ((orientation === 'white' && piece.search(/^w/) === -1) ||
+//       (orientation === 'black' && piece.search(/^b/) === -1)) {
+//     return false
+//   }
+// }
+
+async function onDrop (source, target, piece, newPos, oldPos, orientation) {
+  // console.log('Source: ' + source)
+  // console.log('Target: ' + target)
+  // console.log('Piece: ' + piece)
+  // console.log('New position: ' + Chessboard.objToFen(newPos))
+  // console.log('Old position: ' + Chessboard.objToFen(oldPos))
+  // console.log('Orientation: ' + orientation)
+  // console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+  const payload_string = source + ',' + target;
+  resp = await fetch("/board", {
+     method: "POST",
+     headers: {
+       'Content-Type' : 'application/json'
+     },
+     body: JSON.stringify(payload_string)
+   })
+   .then(function(response){
+     if (!response.ok){
+       console.log("Trying to return snapback...")
+       board.position(oldPos)
+     } else {
+       // How to read data from response.
+       // I want FEN string to set board on castle & En Passant
+       response.json().then( (data) => {
+            if(Chessboard.objToFen(newPos) != data.substr(0,data.indexOf(' '))){
+              console.log("Setting board position to " + data)
+              board.position(data)
+            }
+       })
+     }
+   })
+}
+
+
+var config = {
+    position: 'start',
+    draggable: true,
+    pieceTheme: 'static/img/chesspieces/wikipedia/{piece}.png',
+    onDrop: onDrop,
+    sparePieces: true
+  //onDragStart: onDragStart //renable when engine is implemented
+}
+
+
+var board = Chessboard('myBoard', config);
+</script>
+</div>
+</body>
+</html>
