@@ -15,19 +15,17 @@ logging.basicConfig(level=logging.INFO,format="%(asctime)s:%(name)s:%(levelname)
 # initialize flask app
 app = Flask(__name__)
 
-#Starting board state
-board = chess.Board()
-last_move = ""
+#For now, user can only be white
+game = Game(False, True)
 
-#game = Game()
 
 # is run when a request is sent to the root
 @app.route('/', methods = ['GET', 'POST'])
 def homepage():
-    global board
+    global game
     if request.method=='GET':
-        board.reset()
-        logger.info("Reset game board. Board state: {}".format(board.fen()))
+        game.reset()
+        logger.info("Reset game board. Board state: {}".format(game.fen()))
         return render_template("index.html")
     if request.method=='POST':
         logger.info(request.get_json())
@@ -37,64 +35,26 @@ def homepage():
 #Returns board state
 @app.route('/board', methods = ['GET', 'POST'])
 def boardstate():
-    global board
+    global game
     if request.method=='GET':
-        logger.info("Board state: {}".format(board.fen()))
-        return json.dumps(board.fen())
+        logger.info("Board state: {}".format(game.fen()))
+        return json.dumps(game.fen())
     if request.method=='POST':
-        global last_move
-        logger.info("Prior board state: {}".format(board.fen()))
+        logger.info("Prior board state: {}".format(game.fen()))
         source, target = request.get_json().split(',')
-        move = chess.Move.from_uci("{}{}".format(source,target))
-        if move in board.legal_moves:
-            if not move.null():
-                board.push(move)
-                logger.info("Legal Move. New Fen: {}".format(board.fen()))
-            resp = json.dumps(board.fen())
+        logger.info(f"{source}, {target}")
+        if game.legal_move(source, target) and not game.null_move(source, target):
+            game.push_move(source, target)
+            logger.info("Legal Move. New Fen: {}".format(game.fen()))
+            if game.player_turn: logger.info("White's move")
+            elif not game.player_turn: logger.info("Black's move")
+            resp = json.dumps(game.fen())
             return resp
         else:
-            logger.info("Illegal move: {}{}. Fen: {}".format(source,target,board.fen()))
-            resp = Response(response=board.fen(),status=418)
+            logger.info("Illegal move: {}{}. Fen: {}".format(source,target,game.fen()))
+            resp = Response(response=game.fen(),status=418)
             return resp
-
-# Below here silly
-
-# @app.route('/', methods = ['GET', 'POST'])
-# def homepage():
-#     global game
-#     if request.method=='GET':
-#         game.reset_game()
-#         logger.info("Reset game board. Board state: {}".format(game.fen()))
-#         return render_template("index.html")
-#     if request.method=='POST':
-#         logger.info(request.get_json())
-#         return render_template("index.html")
-
-# @app.route('/board', methods = ['GET', 'POST'])
-# def boardstate():
-#     global game
-#     if request.method=='GET':
-#         logger.info("Board state: {}".format(game.fen()))
-#         return json.dumps(board.fen())
-#     if request.method=='POST':
-#         global last_move
-#         logger.info("Prior board state: {}".format(game.fen()))
-#         source, target = request.get_json().split(',')
-#         move = game.to_move(f"{source}{target}")
-#         if game.legal_move(move):
-#             if not game.null_move():
-#                 game.push_move(move)
-#                 logger.info("Legal Move. New Fen: {}".format(game.fen()))
-#             resp = json.dumps(game.fen())
-#             return resp
-#         else:
-#             logger.info("Illegal move: {}{}. Fen: {}".format(source,target,game.fen()))
-#             resp = Response(response=game.fen(),status=418)
-#             return resp
-
-
-
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(port='8080', debug=True)

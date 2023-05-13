@@ -1,31 +1,38 @@
 import chess
+import random
 
-# Stores the state of the game
+class Game(object):
+    """Game object stores the state of the chess game. It takes computer_color, and user_color as arguments to initialize the game board."""
+    def __init__(self, computer_color, user_color):
+        self.board = chess.Board()  
+        self.last_move = ""
+        self.computer = computer_color
+        self.user = user_color
+        self.player_turn = True
 
-class Game:
-    def __init__(self):
-        self.board = chess.Board()
-        self.engine_color = None
-        self.turn = 0
+    def fen(self) -> str:
+        return self.board.fen()
 
-    # will allow user to select color
-    def set_engine_color(self, color):
-        self.engine_color = color
-
-    def reset_game(self):
+    def reset(self) -> None:
         self.board.reset()
 
-    def to_move(self, uci):
-        return chess.Move.from_uci(uci)
-
-    def legal_move(self, move):
+    def legal_move(self, source, target) -> bool:
+        move = chess.Move.from_uci(f"{source}{target}")
         return move in self.board.legal_moves
 
-    def null_move(move):
-        return move.null()
+    def null_move(self, source, target) -> bool:
+        return chess.Move.from_uci(f"{source}{target}").null()
 
-    def push_move(move):
-        self.board.push(move)
+    def push_move(self, source, target) -> None:
+        self.board.push(chess.Move.from_uci(f"{source}{target}"))
+        if self.board.is_game_over():
+            return
+        self.player_turn = not self.player_turn
+        # Computer move:
+        self.board.push(random.choice(list(self.board.legal_moves)))
+        if self.board.is_game_over():
+            return
+        self.player_turn = not self.player_turn
 
-    def fen(self):
-        return self.board.fen()
+if __name__ == "__main__":
+    pass
