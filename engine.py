@@ -18,7 +18,6 @@ app = Flask(__name__)
 #For now, user can only be white
 game = Game(False, True)
 
-
 # is run when a request is sent to the root
 @app.route('/', methods = ['GET', 'POST'])
 def homepage():
@@ -46,8 +45,6 @@ def boardstate():
         if game.legal_move(source, target) and not game.null_move(source, target):
             game.push_move(source, target)
             logger.info("Legal Move. New Fen: {}".format(game.fen()))
-            if game.player_turn: logger.info("White's move")
-            elif not game.player_turn: logger.info("Black's move")
             resp = json.dumps(game.fen())
             return resp
         else:
