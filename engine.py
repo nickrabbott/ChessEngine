@@ -1,57 +1,38 @@
-from flask import Flask
-from flask import render_template
-from flask import send_from_directory
-from flask import request
-from flask import Response
-import logging
-import json
 import chess
-from game import Game
+import random
 
-# initialize logger
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO,format="%(asctime)s:%(name)s:%(levelname)s: %(message)s")
+class Game(object):
+    """Game object stores the state of the chess game. It takes computer_color, and user_color as arguments to initialize the game board."""
+    def __init__(self, computer_color, user_color):
+        self.board = chess.Board()  
+        self.last_move = ""
+        self.computer = computer_color
+        self.user = user_color
+        self.player_turn = True
 
-# initialize flask app
-app = Flask(__name__)
+    def fen(self) -> str:
+        return self.board.fen()
 
-#For now, user can only be white
-game = Game(False, True)
+    def reset(self) -> None:
+        self.board.reset()
 
-# is run when a request is sent to the root
-@app.route('/', methods = ['GET', 'POST'])
-def homepage():
-    global game
-    if request.method=='GET':
-        game.reset()
-        logger.info("Reset game board. Board state: {}".format(game.fen()))
-        return render_template("index.html")
-    if request.method=='POST':
-        logger.info(request.get_json())
-        return render_template("index.html")
+    def legal_move(self, source, target) -> bool:
+        move = chess.Move.from_uci(f"{source}{target}")
+        return move in self.board.legal_moves
 
-#Handles POST including FEN string of board
-#Returns board state
-@app.route('/board', methods = ['GET', 'POST'])
-def boardstate():
-    global game
-    if request.method=='GET':
-        logger.info("Board state: {}".format(game.fen()))
-        return json.dumps(game.fen())
-    if request.method=='POST':
-        logger.info("Prior board state: {}".format(game.fen()))
-        source, target = request.get_json().split(',')
-        logger.info(f"{source}, {target}")
-        if game.legal_move(source, target) and not game.null_move(source, target):
-            game.push_move(source, target)
-            logger.info("Legal Move. New Fen: {}".format(game.fen()))
-            resp = json.dumps(game.fen())
-            return resp
-        else:
-            logger.info("Illegal move: {}{}. Fen: {}".format(source,target,game.fen()))
-            resp = Response(response=game.fen(),status=418)
-            return resp
+    def null_move(self, source, target) -> bool:
+        return chess.Move.from_uci(f"{source}{target}").null()
 
+    def push_move(self, source, target) -> None:
+        self.board.push(chess.Move.from_uci(f"{source}{target}"))
+        if self.board.is_game_over():
+            return
+        self.player_turn = not self.player_turn
+        # Computer move:
+        self.board.push(random.choice(list(self.board.legal_moves)))
+        if self.board.is_game_over():
+            return
+        self.player_turn = not self.player_turn
 
 if __name__ == "__main__":
-    app.run(port='8080', debug=True)
+    pass
