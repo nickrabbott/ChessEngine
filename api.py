@@ -6,7 +6,7 @@ from flask import Response
 import logging
 import json
 import chess
-from game import Game
+from engine import Game
 
 # initialize logger
 logger = logging.getLogger(__name__)
@@ -43,9 +43,10 @@ def boardstate():
         source, target = request.get_json().split(',')
         logger.info(f"{source}, {target}")
         if game.legal_move(source, target) and not game.null_move(source, target):
-            game.push_move(source, target)
-            logger.info("Legal Move. New Fen: {}".format(game.fen()))
+            evaluation = game.push_move(source, target)
+            logger.info(f"Legal Move. New Fen: {game.fen()}. Evaluation: {evaluation}")
             resp = json.dumps(game.fen())
+            if game.result() is not "Game in progress": logger.info(game.result())
             return resp
         else:
             logger.info("Illegal move: {}{}. Fen: {}".format(source,target,game.fen()))
