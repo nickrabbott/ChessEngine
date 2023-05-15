@@ -46,7 +46,7 @@ def boardstate():
             evaluation = game.push_move(source, target)
             logger.info(f"Legal Move. New Fen: {game.fen()}. Evaluation: {evaluation}")
             resp = json.dumps(game.fen())
-            if game.result() is not "Game in progress": logger.info(game.result())
+            if game.result() != "Game in progress" : logger.info(game.result())
             return resp
         else:
             logger.info("Illegal move: {}{}. Fen: {}".format(source,target,game.fen()))
