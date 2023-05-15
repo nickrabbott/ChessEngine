@@ -61,8 +61,20 @@ class Evaluator():
         battackers = (len(self.baseboard.attackers(chess.BLACK, chess.E4)) +  len(self.baseboard.attackers(chess.BLACK, chess.E5)) + len(self.baseboard.attackers(chess.BLACK, chess.D4)) + len(self.baseboard.attackers(chess.BLACK, chess.D5))) * attackw
         return wattackers + battackers
 
+    def _attackedpieces(self):
+        pass
+
+    def _ischeckmate(self):
+        if self.board.is_checkmate():
+            if self.board.result() == "1-0":
+                return float(99999)
+            elif self.board.result() == "0-1":
+                return float(-99999)
+        
+        return 0
+
     def _evaluate(self):
-        return self._material() + self._centercontrol()
+        return self._material() + self._centercontrol() + self._ischeckmate()
 
 class Game(object):
     """Game object stores the state of the chess game. It takes computer_color, and user_color as arguments to initialize the game board."""
