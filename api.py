@@ -4,9 +4,15 @@ from flask import send_from_directory
 from flask import request
 from flask import Response
 import logging
+import argparse
 import json
 import chess
 from engine import Game
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--debug', type=str)
+args = parser.parse_args()
+print(args.debug)
 
 # initialize logger
 logger = logging.getLogger(__name__)
@@ -16,14 +22,14 @@ logging.basicConfig(level=logging.INFO,format="%(asctime)s:%(name)s:%(levelname)
 app = Flask(__name__)
 
 #For now, user can only be white
-game = Game(False, True)
+game = Game(False, True, args.debug)
 
 # is run when a request is sent to the root
 @app.route('/', methods = ['GET', 'POST'])
 def homepage():
     global game
     if request.method=='GET':
-        game.reset()
+        game.reset(args.debug)
         logger.info("Reset game board. Board state: {}".format(game.fen()))
         return render_template("index.html")
     if request.method=='POST':
@@ -43,7 +49,9 @@ def boardstate():
         source, target = request.get_json().split(',')
         logger.info(f"{source}, {target}")
         if game.legal_move(source, target) and not game.null_move(source, target):
-            evaluation = game.push_move(source, target)
+            evaluation, promotion = game.push_move(source, target)
+            if promotion is not None:
+                logger.info(f"Need to handle pawn promotion here in api.py\n@app.route('/board/, methods = ['GET', 'POST']\n def boardstate():")
             logger.info(f"Legal Move. New Fen: {game.fen()}. Evaluation: {evaluation}")
             resp = json.dumps(game.fen())
             if game.result() != "Game in progress" : logger.info(game.result())
