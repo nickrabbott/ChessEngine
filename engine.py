@@ -43,6 +43,7 @@ class Evaluator():
     BISHOP = 3
     ROOK = 5
     QUEEN = 9
+    KING = 99999
     def __init__(self, board):
         self.board = board
         self.baseboard = chess.BaseBoard(self.board.board_fen())
@@ -62,7 +63,9 @@ class Evaluator():
         return wattackers + battackers
 
     def _attackedpieces(self):
-        pass
+        wattackers = len([self.baseboard.attackers(chess.WHITE, square) for square in chess.SQUARES])
+        battackers = len([self.baseboard.attackers(chess.BLACK, square) for square in chess.SQUARES]) 
+        return wattackers - battackers
 
     def _ischeckmate(self):
         if self.board.is_checkmate():
@@ -74,12 +77,13 @@ class Evaluator():
         return 0
 
     def _evaluate(self):
-        return self._material() + self._centercontrol() + self._ischeckmate()
+        return self._material()*0.75 + self._centercontrol()*0.1 + self._attackedpieces()*0.15 + self._ischeckmate()
 
 class Game(object):
     """Game object stores the state of the chess game. It takes computer_color, and user_color as arguments to initialize the game board."""
-    def __init__(self, computer_color, user_color):
-        self.board = chess.Board()  
+    def __init__(self, computer_color, user_color, starting_fen):
+        self.board = chess.Board()
+        if starting_fen is not None: self.board.set_fen(starting_fen)
         self.last_move = ""
         self.computer = computer_color
         self.user = user_color
@@ -89,8 +93,11 @@ class Game(object):
     def fen(self) -> str:
         return self.board.fen()
 
-    def reset(self) -> None:
-        self.board.reset()
+    def reset(self, state) -> None:
+        if state is None:
+            self.board.reset()
+        else:
+            self.board.set_fen(state)
 
     def legal_move(self, source, target) -> bool:
         move = chess.Move.from_uci(f"{source}{target}")
@@ -101,6 +108,7 @@ class Game(object):
 
 
     def push_move(self, source, target) -> None:
+        promotion = None
         print("user move: ", chess.Move.from_uci(f"{source}{target}"))
         self.board.push(chess.Move.from_uci(f"{source}{target}"))
         if self.board.is_game_over():
@@ -109,13 +117,12 @@ class Game(object):
         # Computer move:
         besteval, bestmove = minimax(self.board, self.depth, False)
         print("computer move:", bestmove)
-        #self.board.push(random.choice(list(self.board.legal_moves)))
         if bestmove is not None:
             self.board.push(bestmove)
         if self.board.is_game_over():
             return Evaluator(self.board).eval
         self.player_turn = not self.player_turn
-        return Evaluator(self.board).eval
+        return Evaluator(self.board).eval, promotion
 
     def result(self):
         if self.board.result() == "1-0":
