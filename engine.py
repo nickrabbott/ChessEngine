@@ -100,7 +100,8 @@ class Game(object):
             self.board.set_fen(state)
 
     def legal_move(self, source, target) -> bool:
-        move = chess.Move.from_uci(f"{source}{target}")
+        move = self.board.find_move(chess.parse_square(source), chess.parse_square(target))
+        print(move in self.board.legal_moves)
         return move in self.board.legal_moves
 
     def null_move(self, source, target) -> bool:
@@ -110,7 +111,8 @@ class Game(object):
     def push_move(self, source, target) -> None:
         promotion = None
         print("user move: ", chess.Move.from_uci(f"{source}{target}"))
-        self.board.push(chess.Move.from_uci(f"{source}{target}"))
+        self.board.push(self.board.find_move(chess.parse_square(source), chess.parse_square(target))
+)
         if self.board.is_game_over():
             return Evaluator(self.board).eval
         self.player_turn = not self.player_turn
