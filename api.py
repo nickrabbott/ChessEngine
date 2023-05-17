@@ -12,7 +12,6 @@ from engine import Game
 parser = argparse.ArgumentParser()
 parser.add_argument('--debug', type=str)
 args = parser.parse_args()
-print(args.debug)
 
 # initialize logger
 logger = logging.getLogger(__name__)
