@@ -7,7 +7,7 @@ def generate_legal_moves(board):
         if move is not None:
             yield move
 
-def minimax(board, depth, maxPlayer):
+def minimax_alpha_beta_pruning(board, depth, maxPlayer, alpha, beta):
     if depth == 0 or board.is_checkmate() or board.is_stalemate():
         return Evaluator(board).eval, None
     if maxPlayer:
@@ -15,11 +15,15 @@ def minimax(board, depth, maxPlayer):
         maxMove = None
         for move in generate_legal_moves(board):
             board.push(move)
-            evalboard, evalmove = minimax(board, depth-1, False)
+            evalboard, evalmove = minimax_alpha_beta_pruning(board, depth-1, False, alpha, beta)
             board.pop()
             if evalboard > maxEvaluation:
                 maxMove = move
                 maxEvaluation = evalboard 
+            if alpha > maxEvaluation:
+                alpha = maxEvaluation
+            if beta <= alpha:
+                break
 
         return maxEvaluation, maxMove
     
@@ -28,11 +32,15 @@ def minimax(board, depth, maxPlayer):
         minMove = None
         for move in generate_legal_moves(board):
             board.push(move)
-            evalboard, evalmove = minimax(board, depth-1, True)
+            evalboard, evalmove = minimax_alpha_beta_pruning(board, depth-1, True, alpha, beta)
             board.pop()
             if evalboard < minEvaluation:
                 minMove = move
                 minEvaluation = evalboard
+            if beta < minEvaluation:
+                beta = minEvaluation
+            if alpha <= beta:
+                break
 
         return minEvaluation, minMove
     
@@ -64,7 +72,7 @@ class Evaluator():
 
     def _attackedpieces(self):
         wattackers = len([self.baseboard.attackers(chess.WHITE, square) for square in chess.SQUARES])
-        battackers = len([self.baseboard.attackers(chess.BLACK, square) for square in chess.SQUARES]) 
+        battackers = len([self.baseboard.attackers(chess.BLACK, square) for square in chess.SQUARES])
         return wattackers - battackers
 
     def _ischeckmate(self):
@@ -88,7 +96,7 @@ class Game(object):
         self.computer = computer_color
         self.user = user_color
         self.player_turn = True
-        self.depth = 3
+        self.depth = 5
 
     def fen(self) -> str:
         return self.board.fen()
@@ -117,7 +125,7 @@ class Game(object):
             return Evaluator(self.board).eval
         self.player_turn = not self.player_turn
         # Computer move:
-        besteval, bestmove = minimax(self.board, self.depth, False)
+        besteval, bestmove = minimax_alpha_beta_pruning(self.board, self.depth, False, -99999, 99999)
         print("computer move:", bestmove)
         if bestmove is not None:
             self.board.push(bestmove)
