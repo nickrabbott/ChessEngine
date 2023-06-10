@@ -20,7 +20,7 @@ def minimax_alpha_beta_pruning(board, depth, maxPlayer, alpha, beta):
             if evalboard > maxEvaluation:
                 maxMove = move
                 maxEvaluation = evalboard 
-            if alpha > maxEvaluation:
+            if alpha < maxEvaluation:
                 alpha = maxEvaluation
             if beta <= alpha:
                 break
@@ -37,9 +37,9 @@ def minimax_alpha_beta_pruning(board, depth, maxPlayer, alpha, beta):
             if evalboard < minEvaluation:
                 minMove = move
                 minEvaluation = evalboard
-            if beta < minEvaluation:
+            if beta > minEvaluation:
                 beta = minEvaluation
-            if alpha <= beta:
+            if beta <= alpha:
                 break
 
         return minEvaluation, minMove
@@ -75,6 +75,25 @@ class Evaluator():
         battackers = len([self.baseboard.attackers(chess.BLACK, square) for square in chess.SQUARES])
         return wattackers - battackers
 
+    #'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
+    # NEEDS IMPROVEMENT
+    def _opening(self):
+        if len(self.board.move_stack) < 10: #opening phase
+            wlknight = self.board.board_fen().split('/')[7][1] == "N"
+            wrknight = self.board.board_fen().split('/')[7][-2] == "N"
+            wlbishop = self.board.board_fen().split('/')[7][2] == "B"
+            wrbishop = self.board.board_fen().split('/')[7][-3] == "B"
+            blknight = self.board.board_fen().split('/')[0][1] == "n"
+            brknight = self.board.board_fen().split('/')[0][-2] == "n"
+            blbishop = self.board.board_fen().split('/')[0][2] == "b"
+            brbishop = self.board.board_fen().split('/')[0][-3] == "b"
+            wopened = (1 - wlknight) - (1 - wrknight) - (1 - wlbishop) - (1 - wrbishop) 
+            bopened = blknight + brknight + blbishop + brbishop
+            return bopened - wopened
+        else:
+            return 0 
+
+
     def _ischeckmate(self):
         if self.board.is_checkmate():
             if self.board.result() == "1-0":
@@ -85,7 +104,7 @@ class Evaluator():
         return 0
 
     def _evaluate(self):
-        return self._material()*0.75 + self._centercontrol()*0.1 + self._attackedpieces()*0.15 + self._ischeckmate()
+        return self._material()*0.9 + self._centercontrol()*0.1  + self._opening() + self._ischeckmate() #+ self._attackedpieces()*0.15
 
 class Game(object):
     """Game object stores the state of the chess game. It takes computer_color, and user_color as arguments to initialize the game board."""
@@ -96,7 +115,7 @@ class Game(object):
         self.computer = computer_color
         self.user = user_color
         self.player_turn = True
-        self.depth = 5
+        self.depth = 4 
 
     def fen(self) -> str:
         return self.board.fen()
