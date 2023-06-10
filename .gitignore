@@ -2,6 +2,7 @@
 TODO.txt
 *.txt
 /Docs
+.DS_Store
 
 
 ##########
