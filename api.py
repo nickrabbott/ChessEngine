@@ -6,7 +6,6 @@ from flask import Response
 import logging
 import argparse
 import json
-import chess
 from engine import Game
 
 parser = argparse.ArgumentParser()
@@ -28,11 +27,21 @@ game = Game(False, True, args.debug)
 def homepage():
     global game
     if request.method=='GET':
-        game.reset(args.debug)
-        logger.info("Reset game board. Board state: {}".format(game.fen()))
+        # game.reset(args.debug)
+        # logger.info("Reset game board. Board state: {}".format(game.fen()))
+        logger.info("Page reload -- test returning index.html")
         return render_template("index.html")
     if request.method=='POST':
         logger.info(request.get_json())
+        return render_template("index.html")
+
+
+@app.route('/reset', methods = ['GET', 'POST'])
+def reset():
+    global game
+    if request.method == 'GET' or request.method == 'POST':
+        game.reset(args.debug)
+        logger.info("Reset game board. Board state: {}".format(game.fen()))
         return render_template("index.html")
 
 #Handles POST including FEN string of board
@@ -42,6 +51,9 @@ def boardstate():
     global game
     if request.method=='GET':
         logger.info("Board state: {}".format(game.fen()))
+        if game.computer == True:
+            #Computer Move should only be true once when the game begins
+            game.computer_move()     
         return json.dumps(game.fen())
     if request.method=='POST':
         logger.info("Prior board state: {}".format(game.fen()))
@@ -51,7 +63,9 @@ def boardstate():
             evaluation, promotion = game.push_move(source, target)
             if promotion is not None:
                 logger.info(f"Need to handle pawn promotion here in api.py\n@app.route('/board/, methods = ['GET', 'POST']\n def boardstate():")
-            logger.info(f"Legal Move. New Fen: {game.fen()}. Evaluation: {evaluation}")
+            logger.info(f"Legal Move.")
+            logger.info(f"New Fen: {game.fen()}.")
+            logger.info(f"Evaluation: {evaluation}")
             resp = json.dumps(game.fen())
             if game.result() != "Game in progress" : logger.info(game.result())
             return resp
@@ -59,6 +73,18 @@ def boardstate():
             logger.info("Illegal move: {}{}. Fen: {}".format(source,target,game.fen()))
             resp = Response(response=game.fen(),status=418)
             return resp
+
+@app.route('/switchColors', methods = ['POST'])
+def switch_colors():
+    global game
+    resp = game.switch_colors()
+    if resp:
+        game.computer_move()
+        logger.info(f"Computer Color: {game.computer}, User Color: {game.user}")
+        return Response(response=game.fen(), status=200)
+    else:
+        logger.info(f"Can't switch colors after the game has started")
+        return Response(response=game.fen(), status=418)
 
 
 if __name__ == "__main__":

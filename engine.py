@@ -2,7 +2,9 @@ import chess
 import random
 
 def generate_legal_moves(board):
-    '''work around chess.Board.legal_moves generating a NoneType at end of legal moves'''
+    '''
+    work around chess.Board.legal_moves generating a NoneType at end of legal moves
+    '''
     for move in board.legal_moves:
         if move is not None:
             yield move
@@ -57,18 +59,51 @@ class Evaluator():
         self.baseboard = chess.BaseBoard(self.board.board_fen())
         self.eval = self._evaluate()
 
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return (
+            f"Evaluation: {self.eval}\n"
+            "==========\n"
+            f"Material Eval = {self._material()}\n"
+            f"Center Control = {self._centercontrol()}\n"
+            f"Attacked Pieces = {self._attackedpieces()}\n"
+            f"Opening = {self._opening()}"
+        )
+                 
     def _material(self):
         fenstr = self.board.fen()
-        w = fenstr.count('P')*self.PAWN + fenstr.count('N')*self.KNIGHT + fenstr.count('B')*self.BISHOP + fenstr.count('R')*self.ROOK + fenstr.count('Q')*self.QUEEN 
-        b = fenstr.count('p')*self.PAWN + fenstr.count('n')*self.KNIGHT + fenstr.count('b')*self.BISHOP + fenstr.count('r')*self.ROOK + fenstr.count('q')*self.QUEEN 
+        w = (fenstr.count('P')*self.PAWN +
+             fenstr.count('N')*self.KNIGHT +
+             fenstr.count('B')*self.BISHOP + 
+             fenstr.count('R')*self.ROOK + 
+             fenstr.count('Q')*self.QUEEN)
+        b = (fenstr.count('p')*self.PAWN +
+             fenstr.count('n')*self.KNIGHT +
+             fenstr.count('b')*self.BISHOP +
+             fenstr.count('r')*self.ROOK +
+             fenstr.count('q')*self.QUEEN)
         return w - b
     
     def _centercontrol(self):
         attackw = 0.25
         occupyw = 0.5
-        wattackers = (len(self.baseboard.attackers(chess.WHITE, chess.E4)) +  len(self.baseboard.attackers(chess.WHITE, chess.E5)) + len(self.baseboard.attackers(chess.WHITE, chess.D4)) + len(self.baseboard.attackers(chess.WHITE, chess.D5))) * attackw
-        battackers = (len(self.baseboard.attackers(chess.BLACK, chess.E4)) +  len(self.baseboard.attackers(chess.BLACK, chess.E5)) + len(self.baseboard.attackers(chess.BLACK, chess.D4)) + len(self.baseboard.attackers(chess.BLACK, chess.D5))) * attackw
-        return wattackers + battackers
+        wattackers = (len(self.baseboard.attackers(chess.WHITE, chess.E4)) +
+                      len(self.baseboard.attackers(chess.WHITE, chess.E5)) + 
+                      len(self.baseboard.attackers(chess.WHITE, chess.D4)) + 
+                      len(self.baseboard.attackers(chess.WHITE, chess.D5))) * attackw
+        battackers = (len(self.baseboard.attackers(chess.BLACK, chess.E4)) +
+                      len(self.baseboard.attackers(chess.BLACK, chess.E5)) +
+                      len(self.baseboard.attackers(chess.BLACK, chess.D4)) + 
+                      len(self.baseboard.attackers(chess.BLACK, chess.D5))) * attackw
+        # We're in the opening
+        if len(self.board.move_stack) < 10:
+            return wattackers + battackers
+        else:
+            return 0
+
 
     def _attackedpieces(self):
         wattackers = len([self.baseboard.attackers(chess.WHITE, square) for square in chess.SQUARES])
@@ -107,7 +142,12 @@ class Evaluator():
         return self._material()*0.9 + self._centercontrol()*0.1  + self._opening() + self._ischeckmate() #+ self._attackedpieces()*0.15
 
 class Game(object):
-    """Game object stores the state of the chess game. It takes computer_color, and user_color as arguments to initialize the game board."""
+    standard_starting_fen = chess.STARTING_FEN
+
+    """
+    Game object stores the state of the chess game. 
+    It takes computer_color, and user_color as arguments to initialize the game board.
+    """
     def __init__(self, computer_color, user_color, starting_fen):
         self.board = chess.Board()
         if starting_fen is not None: self.board.set_fen(starting_fen)
@@ -115,7 +155,19 @@ class Game(object):
         self.computer = computer_color
         self.user = user_color
         self.player_turn = True
+        self.move_number = 1
         self.depth = 4 
+        self.colors_switched = False 
+
+    def switch_colors(self):
+        if not self.colors_switched:
+            self.computer = not self.computer
+            self.user = not self.user
+            self.player_turn = not self.player_turn
+            self.colors_switched = not self.colors_switched
+            return True
+        else:
+            return False
 
     def fen(self) -> str:
         return self.board.fen()
@@ -123,6 +175,7 @@ class Game(object):
     def reset(self, state) -> None:
         if state is None:
             self.board.reset()
+            self.move_number = 1
         else:
             self.board.set_fen(state)
 
@@ -134,24 +187,29 @@ class Game(object):
     def null_move(self, source, target) -> bool:
         return chess.Move.from_uci(f"{source}{target}").null()
 
-
-    def push_move(self, source, target) -> None:
+    def computer_move(self) -> None:
         promotion = None
-        print("user move: ", chess.Move.from_uci(f"{source}{target}"))
-        self.board.push(self.board.find_move(chess.parse_square(source), chess.parse_square(target))
-)
-        if self.board.is_game_over():
-            return Evaluator(self.board).eval
-        self.player_turn = not self.player_turn
-        # Computer move:
-        besteval, bestmove = minimax_alpha_beta_pruning(self.board, self.depth, False, -99999, 99999)
+        besteval, bestmove = minimax_alpha_beta_pruning(self.board, self.depth, self.computer, -99999, 99999)
         print("computer move:", bestmove)
         if bestmove is not None:
             self.board.push(bestmove)
         if self.board.is_game_over():
-            return Evaluator(self.board).eval
+            return Evaluator(self.board).eval, promotion
+        if self.computer is False:
+            self.move_number += 1
         self.player_turn = not self.player_turn
-        return Evaluator(self.board).eval, promotion
+        return Evaluator(self.board), promotion
+
+    def push_move(self, source, target) -> None:
+        print("user move: ", chess.Move.from_uci(f"{source}{target}"))
+        self.board.push(self.board.find_move(chess.parse_square(source), chess.parse_square(target)))
+        if self.board.is_game_over():
+            return Evaluator(selfc.board).eval
+        if self.user is False:
+            self.move_number += 1
+        self.player_turn = not self.player_turn
+        # Computer move:
+        return self.computer_move()
 
     def result(self):
         if self.board.result() == "1-0":
