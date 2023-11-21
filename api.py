@@ -44,6 +44,11 @@ def reset():
         logger.info("Reset game board. Board state: {}".format(game.fen()))
         return render_template("index.html")
 
+@app.route('/refresh', methods = ['GET'])
+def refresh():
+    global game
+    return json.dumps(game.fen())
+
 #Handles POST including FEN string of board
 #Returns board state
 @app.route('/board', methods = ['GET', 'POST'])
@@ -53,13 +58,14 @@ def boardstate():
         logger.info("Board state: {}".format(game.fen()))
         if game.computer == True:
             #Computer Move should only be true once when the game begins
+            logger.info("Making computer move")
             game.computer_move()     
         return json.dumps(game.fen())
     if request.method=='POST':
         logger.info("Prior board state: {}".format(game.fen()))
         source, target = request.get_json().split(',')
         logger.info(f"{source}, {target}")
-        if game.legal_move(source, target) and not game.null_move(source, target):
+        if game.good_move(source, target):
             evaluation, promotion = game.push_move(source, target)
             if promotion is not None:
                 logger.info(f"Need to handle pawn promotion here in api.py\n@app.route('/board/, methods = ['GET', 'POST']\n def boardstate():")

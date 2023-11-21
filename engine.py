@@ -54,11 +54,18 @@ class Evaluator():
     ROOK = 5
     QUEEN = 9
     KING = 99999
+
+    WEIGHTS = {
+            "material": 0.9,
+            "center_control": 0.1,
+            "opening": 0.3,
+            "attacked_pieces": 0.15
+    }
+
     def __init__(self, board):
         self.board = board
         self.baseboard = chess.BaseBoard(self.board.board_fen())
         self.eval = self._evaluate()
-
 
     def __str__(self):
         return self.__repr__()
@@ -67,10 +74,10 @@ class Evaluator():
         return (
             f"Evaluation: {self.eval}\n"
             "==========\n"
-            f"Material Eval = {self._material()}\n"
-            f"Center Control = {self._centercontrol()}\n"
-            f"Attacked Pieces = {self._attackedpieces()}\n"
-            f"Opening = {self._opening()}"
+            f"Material Eval = {self._material() * self.WEIGHTS['material']}\n"
+            f"Center Control = {self._centercontrol() * self.WEIGHTS['center_control']}\n"
+            f"Attacked Pieces = {self._attackedpieces() * self.WEIGHTS['attacked_pieces']}\n"
+            f"Opening = {self._opening() * self.WEIGHTS['opening']}"
         )
                  
     def _material(self):
@@ -128,7 +135,6 @@ class Evaluator():
         else:
             return 0 
 
-
     def _ischeckmate(self):
         if self.board.is_checkmate():
             if self.board.result() == "1-0":
@@ -139,7 +145,13 @@ class Evaluator():
         return 0
 
     def _evaluate(self):
-        return self._material()*0.9 + self._centercontrol()*0.1  + self._opening() + self._ischeckmate() #+ self._attackedpieces()*0.15
+        return (
+                self._material() * self.WEIGHTS["material"] +
+                self._centercontrol() * self.WEIGHTS["center_control"] +
+                self._opening() * self.WEIGHTS["opening"] +
+                self._attackedpieces() * self.WEIGHTS["attacked_pieces"] +
+                self._ischeckmate() #
+                )
 
 class Game(object):
     standard_starting_fen = chess.STARTING_FEN
@@ -179,9 +191,16 @@ class Game(object):
         else:
             self.board.set_fen(state)
 
+    def good_move(self, source, target) -> bool:
+        return self.legal_move(source, target) and not self.null_move(source, target) 
+
     def legal_move(self, source, target) -> bool:
-        move = self.board.find_move(chess.parse_square(source), chess.parse_square(target))
-        print(move in self.board.legal_moves)
+        try:
+            move = self.board.find_move(chess.parse_square(source), chess.parse_square(target))
+            print(move in self.board.legal_moves)
+        except chess.IllegalMoveError:
+            return False
+
         return move in self.board.legal_moves
 
     def null_move(self, source, target) -> bool:

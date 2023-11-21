@@ -11,8 +11,10 @@
 <!--- Begin Example HTML ------------------------------------------------------>
 <div id="myBoard" style="width: 400px"></div>
 <!--- End Example HTML -------------------------------------------------------->
-<p>Refresh browser to restart the game.</p>
-
+<p>Refresh browser to reload position</p>
+<button onClick="switchColors()" type="button">Change Pieces</button>
+<button onClick="flipOrientationBtn()" type="button">Flip Board</button>
+<button onClick="resetGame()" type="button">Reset Game</button>
 <script type=text/javascript src="{{
   url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
 
@@ -21,17 +23,43 @@
   url_for('static', filename='js/chessboard-1.0.0.min.js') }}"></script>
 <script>
 
-// Re-enable when the engine is implemented
-// function onDragStart (source, piece, position, orientation) {
-//   if ((orientation === 'white' && piece.search(/^w/) === -1) ||
-//       (orientation === 'black' && piece.search(/^b/) === -1)) {
-//     return false
-//   }
-// }
 let board;
 
-async function setupBoard() {
-  // Fetch the initial board state from the server
+function flipOrientationBtn() {
+	board.orientation('flip')
+}
+
+async function resetGame() {
+	const response = await fetch("/reset", {
+		method: "POST",
+    headers: {
+      'Content-Type' : 'application/json'
+    }
+  }).then( 
+  setupBoard())
+}
+
+async function switchColors() {
+  const response = await fetch("/switchColors", {
+    method: "POST",
+    headers: {
+      'Content-Type' : 'application/json'
+    }
+  })
+
+	if (response.ok) {
+		board.flip()
+		const position = await response.text()
+		board.position(position)
+	}
+	else {
+		// Could be that game has already started
+		console.log("Error switching colors. If the game has already started, first reset game.")
+	}
+}
+
+async function fetchBoard() {
+  // Fetch the initial board state 
   const response = await fetch("/board");
   if (!response.ok) {
     console.log("Error fetching initial board state");
@@ -42,67 +70,71 @@ async function setupBoard() {
   const initialBoardState = JSON.parse(initialBoardStateJson);
   const initialPiecePlacement = initialBoardState.substr(0, initialBoardState.indexOf(' '));
   
-  console.log("Initial piece placement: ", initialPiecePlacement);  // Add this line
+  console.log("Initial piece placement: ", initialPiecePlacement);
+  return initialPiecePlacement;
+}
 
+async function setupBoard() {
+  initialPiecePlacement = await fetchBoard();
+  console.log(initialPiecePlacement);
   var config = {
       position: initialPiecePlacement,
       draggable: true,
       pieceTheme: 'static/img/chesspieces/wikipedia/{piece}.png',
       onDrop: onDrop,
-      sparePieces: true
+      sparePieces: true,
+			showErrors: console
   }
-
+  console.log(config);
   board = Chessboard('myBoard', config);
 }
 
 // Call the async function to set up the board
 setupBoard();
 
+function extractRelevantFen(fullFen) {
+  // Split the FEN string by spaces and take the first element
+	const sanitizedFen = fullFen.replace(/^"|"$/g, '');
+  const parts = sanitizedFen.split(' ');
+  return parts[0];
+}
+
+async function handleResponse(response, source, target, piece, newPos, oldPos, orientation) {
+  if (!response.ok) {
+    console.log("Trying to return snapback...");
+    // Fetch the board state from the server
+    const boardResponse = await fetch("/refresh");
+    if (!boardResponse.ok) {
+      console.log("Error fetching board state");
+      return;
+    }
+    const boardState = await boardResponse.text(); 
+    // Set the board state
+    console.log("Setting board position to " + boardState);
+    let piecePlacement = extractRelevantFen(boardState);
+    board.position(Chessboard.fenToObj(piecePlacement), false);
+    console.log("Received 418, setting back to old position");
+  } else {
+    const data = await response.json();
+    if (Chessboard.objToFen(newPos) != data.substr(0, data.indexOf(' '))) {
+      console.log("Setting board position to " + data);
+      board.position(data, false);
+    }
+  }
+}
+
 async function onDrop(source, target, piece, newPos, oldPos, orientation) {
   const payload_string = source + ',' + target;
   const response = await fetch("/board", {
     method: "POST",
     headers: {
-      'Content-Type' : 'application/json'
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload_string)
-  })
+  });
 
-  if (!response.ok) {
-    console.log("Trying to return snapback...")
-    // Fetch the board state from the server
-    const boardResponse = await fetch("/board");
-    if (!boardResponse.ok) {
-      console.log("Error fetching board state");
-      return;
-    }
-    const boardState = await boardResponse.text(); // Assuming the server returns a plain text FEN string
-    // Set the board state
-    console.log("Setting board position to " + boardState)
-    peicePlacement = boardState.substr(0, boardState.indexOf(' '))
-    board.position(peicePlacement, false)
-  } else {
-    const data = await response.json();
-    if (Chessboard.objToFen(newPos) != data.substr(0,data.indexOf(' '))){
-      console.log("Setting board position to " + data)
-      board.position(data, false)
-    }
-  }
+  handleResponse(response, source, target, piece, newPos, oldPos, orientation);
 }
-
-
-
-//var config = {
-//    position: 'start',
-//    draggable: true,
-//    pieceTheme: 'static/img/chesspieces/wikipedia/{piece}.png',
-//    onDrop: onDrop,
-//    sparePieces: true
-//  //onDragStart: onDragStart //renable when engine is implemented
-//}
-//
-//
-//var board = Chessboard('myBoard', config);
 </script>
 </div>
 </body>
