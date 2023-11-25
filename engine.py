@@ -48,18 +48,21 @@ def minimax_alpha_beta_pruning(board, depth, maxPlayer, alpha, beta):
     
 
 class Evaluator():
-    PAWN = 1
-    KNIGHT = 3
-    BISHOP = 3
-    ROOK = 5
-    QUEEN = 9
-    KING = 99999
+    BASE_VALUES = {
+        chess.PAWN : 1,
+        chess.KNIGHT : 3,
+        chess.BISHOP : 3,
+        chess.ROOK : 5,
+        chess.QUEEN : 9,
+        chess.KING : 99999
+    }
 
     WEIGHTS = {
-            "material": 0.9,
-            "center_control": 0.1,
-            "opening": 0.3,
-            "attacked_pieces": 0.15
+        "material": 0.5,
+        "controlled_squares": 0.1,
+        "center_control": 0.1,
+        "opening": 0.2,
+        "attacked_pieces": 0.1
     }
 
     def __init__(self, board):
@@ -75,25 +78,45 @@ class Evaluator():
             f"Evaluation: {self.eval}\n"
             "==========\n"
             f"Material Eval = {self._material() * self.WEIGHTS['material']}\n"
-            f"Center Control = {self._centercontrol() * self.WEIGHTS['center_control']}\n"
+            f"Controlled Squares = {self._controlledsquares() * self.WEIGHTS['controlled_squares']}\n"
+            #f"Center Control = {self._centercontrol() * self.WEIGHTS['center_control']}\n"
             f"Attacked Pieces = {self._attackedpieces() * self.WEIGHTS['attacked_pieces']}\n"
-            f"Opening = {self._opening() * self.WEIGHTS['opening']}"
+            #f"Opening = {self._opening() * self.WEIGHTS['opening']}"
         )
                  
+    def _piece_value(self, piece_type):
+        return self.BASE_VALUES.get(piece_type, 0)
+
     def _material(self):
-        fenstr = self.board.fen()
-        w = (fenstr.count('P')*self.PAWN +
-             fenstr.count('N')*self.KNIGHT +
-             fenstr.count('B')*self.BISHOP + 
-             fenstr.count('R')*self.ROOK + 
-             fenstr.count('Q')*self.QUEEN)
-        b = (fenstr.count('p')*self.PAWN +
-             fenstr.count('n')*self.KNIGHT +
-             fenstr.count('b')*self.BISHOP +
-             fenstr.count('r')*self.ROOK +
-             fenstr.count('q')*self.QUEEN)
-        return w - b
+        wc = 0
+        bc = 0
+        for square, piece in self.board.piece_map().items():
+            if piece.color == chess.WHITE:
+                wc += self._piece_value(piece.piece_type)
+            elif piece.color == chess.BLACK:
+                bc += self._piece_value(piece.piece_type)
+        return wc - bc
     
+    def _getcontrolcount(self, piece, square):
+        # Skip pawns for forward moves
+        if piece.piece_type == chess.PAWN:
+            controlled_squares = len(self.board.attacks(square)) - 1    
+        elif piece.piece_type == chess.KING:
+            controlled_squares = 0
+        else:
+            controlled_squares = len(self.board.attacks(square))
+        return controlled_squares * self._piece_value(piece.piece_type)
+
+    def _controlledsquares(self):
+        wc = 0
+        bc = 0
+        for square, piece in self.board.piece_map().items():
+            if piece.color == chess.WHITE:
+                wc += self._getcontrolcount(piece, square)
+            elif piece.color == chess.BLACK:
+                bc += self._getcontrolcount(piece, square)
+        return wc - bc
+
     def _centercontrol(self):
         attackw = 0.25
         occupyw = 0.5
@@ -147,8 +170,9 @@ class Evaluator():
     def _evaluate(self):
         return (
                 self._material() * self.WEIGHTS["material"] +
-                self._centercontrol() * self.WEIGHTS["center_control"] +
-                self._opening() * self.WEIGHTS["opening"] +
+                self._controlledsquares() * self.WEIGHTS["controlled_squares"] +
+                #self._centercontrol() * self.WEIGHTS["center_control"] +
+                #self._opening() * self.WEIGHTS["opening"] +
                 self._attackedpieces() * self.WEIGHTS["attacked_pieces"] +
                 self._ischeckmate() #
                 )
