@@ -58,11 +58,11 @@ class Evaluator():
     }
 
     WEIGHTS = {
-        "material": 0.5,
-        "controlled_squares": 0.1,
+        "material": 0.9,
+        "controlled_squares": 0.05,
         "center_control": 0.1,
         "opening": 0.2,
-        "attacked_pieces": 0.1
+        "attacked_pieces": 0.05
     }
 
     def __init__(self, board):
@@ -80,7 +80,7 @@ class Evaluator():
             f"Material Eval = {self._material() * self.WEIGHTS['material']}\n"
             f"Controlled Squares = {self._controlledsquares() * self.WEIGHTS['controlled_squares']}\n"
             #f"Center Control = {self._centercontrol() * self.WEIGHTS['center_control']}\n"
-            f"Attacked Pieces = {self._attackedpieces() * self.WEIGHTS['attacked_pieces']}\n"
+            f"Attacked Pieces = {self._attackedpieces2() * self.WEIGHTS['attacked_pieces']}\n"
             #f"Opening = {self._opening() * self.WEIGHTS['opening']}"
         )
                  
@@ -134,11 +134,31 @@ class Evaluator():
         else:
             return 0
 
-
     def _attackedpieces(self):
-        wattackers = len([self.baseboard.attackers(chess.WHITE, square) for square in chess.SQUARES])
-        battackers = len([self.baseboard.attackers(chess.BLACK, square) for square in chess.SQUARES])
-        return wattackers - battackers
+        wc = 0
+        bc = 0
+        attacks_cache = {}
+        piece_value_cache = {}
+    
+        for square, attacking_piece in self.baseboard.piece_map().items():
+            if square not in attacks_cache:
+                attacks_cache[square] = set(self.baseboard.attacks(square))
+
+            for attacked_square in attacks_cache[square]:
+                if attacked_square not in piece_value_cache:
+                    defending_piece = self.baseboard.piece_at(attacked_square)
+                    if defending_piece:
+                        piece_value_cache[attacked_square] = self.BASE_VALUES[defending_piece.piece_type]
+                    else:
+                        piece_value_cache[attacked_square] = 0
+    
+                if attacking_piece.color != self.baseboard.color_at(attacked_square):
+                    if attacking_piece.color == chess.WHITE:
+                        wc += piece_value_cache[attacked_square]
+                    else:
+                        bc += piece_value_cache[attacked_square]
+    
+        return wc - bc
 
     #'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
     # NEEDS IMPROVEMENT
